@@ -46,8 +46,8 @@ function timeSeries=delta(nodeCount,linkDensity,mcmcSample,maxDelta)
         deltaH=rhamiltonian(Gprop,linkDensity)-rhamiltonian(Gcurr,linkDensity);
         
         %deltaH = q(G,G')-q(G',G)
-        deltaQ=-rlogq(Gcurr,nodeCount,maxDelta)+rlogq(Gprop,nodeCount,maxDelta);
-
+        deltaQ=newlogq(Gcurr,Gprop,nodeCount,maxDelta)-newlogq(Gprop,Gcurr,nodeCount,maxDelta);
+        deltaQ=-deltaQ;
         if log(rand)<=min(0,deltaH-deltaQ)
             Gcurr=Gprop;
         end
