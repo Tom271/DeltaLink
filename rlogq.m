@@ -1,4 +1,5 @@
 %Log probability of moving from the current graph G to a graph G'
+%As in report -- Converges for n=100, not so good for large n=1000%
 
 function logq=rlogq(G,nodeCount,maxDelta)
    %(Gcurr,Gprop,nodeCount)
