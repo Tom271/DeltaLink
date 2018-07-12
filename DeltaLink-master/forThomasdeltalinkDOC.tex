@@ -1,0 +1,160 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[shortlabels]{enumitem}
+\usepackage{amsmath}
+%\usepackage[export]{adjustbox}
+\usepackage{palatino}
+\usepackage{xcolor}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Code Snippets
+\usepackage{listings}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\usepackage[mathletters]{ucs} % Extended unicode (utf-8) support
+\usepackage[utf8x]{inputenc} % Allow utf-8 characters in the tex document
+\usepackage{fancyvrb}
+\lstdefinestyle{mystyle}{
+		commentstyle=\color{codegreen},
+		keywordstyle=\color{magenta},
+		numberstyle=\tiny\color{codegray},
+		stringstyle=\color{codepurple},
+		basicstyle=\footnotesize,
+		breakatwhitespace=true,         
+		breaklines=true,                 
+		captionpos=b,                    
+		keepspaces=true,                 
+		numbers=left,                    
+		numbersep=5pt,                  
+		showspaces=false,                
+		showstringspaces=false,
+		showtabs=false,                  
+		tabsize=2
+		%basewidth=0.48em
+}
+\lstset{style=mystyle,basicstyle=\ttfamily\small,basewidth=0.526em}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{tikz}
+
+\usepackage{amsthm}
+\renewcommand\qedsymbol{$\blacksquare$}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+%\usepackage{mathtools}
+\usepackage{hyperref}
+\def\labelitemi{\bf{--}}
+
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\bL}{\mathcal{L}}
+\newcommand{\N}{\mathcal{N}}
+
+\usepackage{graphicx}
+\graphicspath{{/home/tom/Documents/SummerProject/}}
+\usepackage{subcaption}
+
+\usepackage[left=1in,right=1in,top=1in,bottom=1in]{geometry}
+
+\usepackage{stackrel}
+\usepackage{commath}
+\renewcommand\thesection{\arabic{section}}
+\renewcommand{\u}{\underline}
+
+\let\oldref\ref
+\renewcommand{\ref}[1]{(\oldref{#1})}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{algorithm}{Algorithm}
+\newtheorem*{note}{Note}
+\newtheorem{definition}[theorem]{Definition}
+
+\author{Thomas M. Hodgson}
+
+\setlength{\parindent}{1em}
+\renewcommand{\P}{\mathbb{P}}
+\newcommand{\lchoose}[2]{\binom{#1}{#2}}
+
+
+\begin{document}
+    \begin{center}
+        \Large{\underline{The \texttt{deltalink} Algorithm}}
+    \end{center}
+The \texttt{deltalink} algorithm produces a random graph with a prescribed number of edges using the Metropolis-Hastings algorithm. It utilises three other functions in its operation. In order of ascending complexity, these are: \texttt{hamiltonian.m, choose.m} and \texttt{logq.m}.
+
+\section{\texttt{hamiltonian.m}}\label{ham}
+This function calculates the graph Hamiltonian of the input graph. As inputs, it takes and adjacency matrix, \(G\) and the prescribed link density, \(p\). It returns a scalar value for the Hamiltonian.
+
+Currently it is only built for the case when only the link density is prescribed.
+\[H(G,p) = \beta \times m \]
+where \(m\) is the number of links on \(G\), and \(p\) is the prescribed link density.
+
+\section{\texttt{choose.m}}\label{choose}
+This function calculates the binomial coefficient using the inbuilt \texttt{gammaln} function. By definition, \(\Gamma(n+1)=n!\) for all positive integers \(n\). Then
+
+\begin{align*} 
+    \binom{n}{k} &= \frac{n!}{k!(n-k)!}= \frac{\Gamma(n+1)}{\Gamma(k+1)\Gamma(n-k+1)}\\
+    &\\
+    &=\exp\left[\log(\Gamma(n+1))-\log(\Gamma(k+1))-\log(\Gamma(n-k+1))\right]
+\end{align*}
+
+Probably better to use inbuilt \texttt{nchoosek} or \texttt{bincoeff} and suppress precision warning. 
+\section{\texttt{logq.m}}\label{logq}
+This function calculates the logarithm of the transition probability between two graphs in the space. It does this using Theorem 6.4 from the project.
+\begin{align*}
+\log q(G',G) &=\log\left[ \sum_{d=0}^{W/2}\binom{m}{d} + \sum_{d=1}^{W/2} \binom{\lchoose{n}{2}-m}{d}\right]-\log\left(\binom{\binom{n}{2}}{m}\right)
+\end{align*} 
+It creates a vector containing each summand before finally adding them together and taking away the final term.
+\section{\texttt{deltalink.m}}
+The \texttt{deltalink} algorithm takes these previous components and uses them in a Metropolis-Hastings algorithm. It rejects if \(\delta\) is negative and there are fewer than \(\delta\) edges on the graph. It also rejects if the proposal adds more edges than are possible on a simple graph, or if there is no proposed change in the edge count.
+
+Required inputs are the number of nodes to build the graph on ,\texttt{n}; the link density of the desired graph, \texttt{p}; the number of MCMC iterations to run, \texttt{iterations} and the width of the interval from which to sample \(\delta\), the number of links to change, \texttt{windowWidth}. It would be nice to be able to input the desired number of edges rather than the link density, although this conversion is trivial. 
+
+It currently outputs a time series of the edge count and a histogram of the edge count data. This could be change to output a graph.
+
+\section{Deriving the Transition Probability}
+Let \(\delta:[-W/2,W/2]\cap\mathbb{Z}\backslash\{0\} \to [0,1] \) be a random variable denoting the number of links to add (removing links is adding a negative number). This is chosen at each iteration of the for loop. Here, \(W\) is an even integer chosen by the user. The distribution of \(\delta\) was chosen to be uniform, i.e. \(\P(\delta=d)=1/W\). Let \(G\) be a simple graph with \(n\) nodes and \(m\) edges. Then the proposed graph, \(G'\), is also a simple graph on \(n\) nodes with \(m+\delta\) edges. The set from which \(G'\) can be drawn was called the \textit{neighbourhood} of the graph in the project, denoted \(\textrm{nbhd}(G(\N,\mathcal{L}))\).
+ 
+To find the probability of a proposed move from a graph \(G\) to \(G'\), recall \(q(G,G')=\P(G'|G)\). To apply Law of Total Probability, we require \(\delta\) to partition the sample space.
+\[q(G,G')=\sum_{\substack{d=-W/2\\d \neq 0}}^{W/2}\P(G'|G,\delta=d)\P(\delta=d)\]
+
+To try and find a nicer form of this sum, we will give \(\delta\) a discrete uniform distribution, let \(W=2,W=4\), and then attempt to generalise.
+
+\subsection{\(W=2\)}
+A discrete uniform distribution on \(\delta\) gives \(\P(\delta=d)=\frac{1}{W}=\frac{1}{2}\). Then
+    \begin{alignat}{1}\label{sumdelta}
+q(G,G')= \P(G'|G,\delta=-1)\P(\delta=-1)+\P(G'|G,\delta=1)\P(\delta=1)
+\end{alignat}
+To calculate these probabilities, we must find the probability of selecting a graph \(G'\) given that we are currently at a graph \(G\) and we are swapping \(\delta\) links. First note that there are \(\binom{\lchoose{n}{2}}{m}\) possible graphs on \(n\) nodes with \(m\) edges. Furthermore, we are selecting \(\delta\) uniformly across the interval, without 0. If \(\delta\) is -1, then we are counting all the graphs that are created by removing one edge. There are \(m\) possible edges to choose from to remove, thus
+\begin{equation}\label{delta-1}\P(G'|G,\delta=-1)=\frac{\lchoose{m}{1}}{\binom{\lchoose{n}{2}}{m}}=\frac{m}{\binom{\lchoose{n}{2}}{m}}\end{equation}
+For \(\delta=1\), there are \(\lchoose{n}{2}-m\) possible empty node pairs in which to place an edge, so
+\begin{equation}\label{delta1}    \P(G'|G,\delta=1)=\frac{\binom{\lchoose{n}{2}-m}{1}}{\binom{\lchoose{n}{2}}{m}}=\frac{\binom{n}{2}-m}{\binom{\lchoose{n}{2}}{m}}\end{equation}
+Now substituting Equations (\ref{delta-1}) and (\ref{delta1}) in to Equation (\ref{sumdelta}) yields
+\begin{align*} 
+q(G,G')
+&=\frac{m\P(\delta=-1)+(\lchoose{n}{2}-m)\P(\delta=1)}{\binom{\lchoose{n}{2}}{m}}\\[0.4em]
+&=\frac{\lchoose{n}{2}}{2\binom{\lchoose{n}{2}}{m}}\\
+\end{align*}
+\subsection{\(W=4\)}
+Note that all the calculations remain the same, other than the extra two terms for \(\delta = \pm 2\). These are 
+\begin{align*}
+\frac{\binom{m}{2}}{\binom{\lchoose{n}{2}}{m}}\qquad\qquad & \frac{\binom{\lchoose{n}{2}-m}{2}}{\binom{\lchoose{n}{2}}{m}}
+\end{align*}
+respectively.
+Incorporating these into the result for \(W=2\) gives 
+\begin{align*} 
+q(G,G')
+&=\frac{\binom{m}{2}\P(\delta=-2)+m\P(\delta=-1)+(\lchoose{n}{2}-m)\P(\delta=1)+\binom{\lchoose{n}{2}-m}{2}\P(\delta=2)}{\binom{\lchoose{n}{2}}{m}}\\[0.4em]
+&= \frac{1}{\binom{\lchoose{n}{2}}{m}}\sum_{d=1}^2\left[\binom{m}{d}\P(\delta=-d)+\binom{\lchoose{n}{2}-m}{d}\P(\delta=d)\right]
+\end{align*}
+Taking logarithms gives:
+\begin{align*}
+\log q(G,G')= \log\sum_{d=1}^2\left[\binom{m}{d}\P(\delta=-d)+\binom{\lchoose{n}{2}-m}{d}\P(\delta=d)\right] - \log \binom{\lchoose{n}{2}}{m}
+\end{align*}
+This gives \begin{align*}
+\Delta Q(G',G) &= \log q(G,G')-\log q(G',G)\\
+&=\log\sum_{d=1}^2\left[\binom{\lchoose{n}{2}-m}{d}\P(\delta=-d)+\binom{\lchoose{n}{2}-m}{d}\P(\delta=d)\right] - \log \binom{\lchoose{n}{2}}{m}\\&\hspace{1cm}-\log\sum_{d=1}^2\left[\binom{\lchoose{n}{2}-m-\delta}{d}\P(\delta=-d)+\binom{\lchoose{n}{2}-m-\delta}{d}\P(\delta=d)\right] + \log \binom{\lchoose{n}{2}}{m+\delta}
+\end{align*}
+\end{document}
